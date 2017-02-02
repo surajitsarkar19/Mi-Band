@@ -25,7 +25,7 @@ public class MainActivity extends PermissionActivity implements View.OnClickList
     private ListView listViewBluetooth;
     private BluetoothListAdapter arrayAdapter;
     private BluetoothAdapter mBluetoothAdapter;
-    List<BluetoothDevice> bluetoothDeviceList;
+    List<BluetoothItem> bluetoothDeviceList;
 
     // Create a BroadcastReceiver for ACTION_FOUND.
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -120,13 +120,15 @@ public class MainActivity extends PermissionActivity implements View.OnClickList
 
     private void listPairedDevices(){
         bluetoothDeviceList.clear();
+        bluetoothDeviceList.add(new BluetoothItem("Paired Devices","",BluetoothListAdapter.TYPE_TITLE));
         Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
         if (pairedDevices.size() > 0) {
             // There are paired devices. Get the name and address of each paired device.
             for (BluetoothDevice device : pairedDevices) {
-                //String deviceName = device.getName();
-                //String deviceHardwareAddress = device.getAddress(); // MAC address
-                bluetoothDeviceList.add(device);
+                String deviceName = device.getName();
+                String deviceHardwareAddress = device.getAddress(); // MAC address
+                BluetoothItem bluetoothItem = new BluetoothItem(deviceName,deviceHardwareAddress,BluetoothListAdapter.TYPE_ITEM);
+                bluetoothDeviceList.add(bluetoothItem);
             }
         }
         arrayAdapter.notifyDataSetChanged();
