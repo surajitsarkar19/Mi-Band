@@ -8,7 +8,7 @@ package surajit.com.miband;
 
 public class BluetoothItem {
     String name,address;
-    int type;
+    int type; //item type
 
     public BluetoothItem(String name, String address) {
         this.name = name;

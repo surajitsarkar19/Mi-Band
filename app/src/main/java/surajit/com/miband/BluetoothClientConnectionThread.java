@@ -17,18 +17,20 @@ public class BluetoothClientConnectionThread extends Thread {
 
     private final BluetoothSocket mmSocket;
     private final BluetoothDevice mmDevice;
-    private String TAG = "BluetoothClientConnectionThread";
+    private String TAG = "BluetoothClientThread";
     private BluetoothAdapter mBluetoothAdapter;
     private BluetoothClientConnectionListener listener;
+    private boolean bRunning;
 
     public interface BluetoothClientConnectionListener {
-        void onClientConnection(BluetoothSocket socket);
+        void onClientConnected(BluetoothSocket socket);
     }
 
     public BluetoothClientConnectionThread(BluetoothAdapter mBluetoothAdapter, BluetoothDevice device, BluetoothClientConnectionListener listener) {
         // Use a temporary object that is later assigned to mmSocket
         // because mmSocket is final.
         BluetoothSocket tmp = null;
+        bRunning = false;
         mmDevice = device;
         this.mBluetoothAdapter = mBluetoothAdapter;
         this.listener = listener;
@@ -43,6 +45,7 @@ public class BluetoothClientConnectionThread extends Thread {
     }
 
     public void run() {
+        bRunning = true;
         // Cancel discovery because it otherwise slows down the connection.
         mBluetoothAdapter.cancelDiscovery();
 
@@ -50,6 +53,12 @@ public class BluetoothClientConnectionThread extends Thread {
             // Connect to the remote device through the socket. This call blocks
             // until it succeeds or throws an exception.
             mmSocket.connect();
+
+            // The connection attempt succeeded. Perform work associated with
+            // the connection in a separate thread.
+            if(listener!=null){
+                listener.onClientConnected(mmSocket);
+            }
         } catch (IOException connectException) {
             // Unable to connect; close the socket and return.
             try {
@@ -57,14 +66,13 @@ public class BluetoothClientConnectionThread extends Thread {
             } catch (IOException closeException) {
                 Log.e(TAG, "Could not close the client socket", closeException);
             }
-            return;
         }
 
-        // The connection attempt succeeded. Perform work associated with
-        // the connection in a separate thread.
-        if(listener!=null){
-            listener.onClientConnection(mmSocket);
-        }
+        bRunning = false;
+    }
+
+    public boolean isRunning(){
+        return bRunning;
     }
 
     // Closes the client socket and causes the thread to finish.
@@ -75,6 +83,5 @@ public class BluetoothClientConnectionThread extends Thread {
             Log.e(TAG, "Could not close the client socket", e);
         }
     }
-
 
 }
