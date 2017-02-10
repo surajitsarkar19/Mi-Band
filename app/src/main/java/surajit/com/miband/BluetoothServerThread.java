@@ -19,7 +19,7 @@ public class BluetoothServerThread extends Thread {
     private final BluetoothServerSocket mmServerSocket;
     private BluetoothAdapter mBluetoothAdapter;
     public static UUID APP_BLUETOOTH_UUID = UUID.fromString("a672880a-ecfc-11e6-c016-6f6e6c696e65");
-    private static String TAG = "BluetoothServerThread";
+    private static String TAG = MainActivity.TAG;
     private boolean bRunning;
 
     public interface BluetoothServerConnectionListener {
@@ -49,6 +49,7 @@ public class BluetoothServerThread extends Thread {
     }
 
     public void run() {
+        Log.i(TAG, "BluetoothServerThread started");
         bRunning = true;
         BluetoothSocket socket = null;
         // Keep listening until exception occurs or a socket is returned.
@@ -74,6 +75,7 @@ public class BluetoothServerThread extends Thread {
             }
         }
         bRunning = false;
+        Log.i(TAG, "BluetoothServerThread stopped");
     }
 
     // Closes the connect socket and causes the thread to finish.

@@ -17,7 +17,7 @@ public class BluetoothClientConnectionThread extends Thread {
 
     private final BluetoothSocket mmSocket;
     private final BluetoothDevice mmDevice;
-    private String TAG = "BluetoothClientThread";
+    private String TAG = MainActivity.TAG;
     private BluetoothAdapter mBluetoothAdapter;
     private BluetoothClientConnectionListener listener;
     private boolean bRunning;
