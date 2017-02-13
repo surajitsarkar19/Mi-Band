@@ -1,4 +1,4 @@
-package surajit.com.miband;
+package surajit.com.miband.bluetooth;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothServerSocket;
@@ -7,6 +7,8 @@ import android.util.Log;
 
 import java.io.IOException;
 import java.util.UUID;
+
+import surajit.com.miband.MainActivity;
 
 /**
  * Created by Surajit Sarkar on 7/2/17.

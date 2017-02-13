@@ -1,4 +1,4 @@
-package surajit.com.miband;
+package surajit.com.miband.bluetooth;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -6,6 +6,8 @@ import android.bluetooth.BluetoothSocket;
 import android.util.Log;
 
 import java.io.IOException;
+
+import surajit.com.miband.MainActivity;
 
 /**
  * Created by Surajit Sarkar on 8/2/17.
@@ -45,6 +47,7 @@ public class BluetoothClientConnectionThread extends Thread {
     }
 
     public void run() {
+        Log.i(TAG,"BluetoothClientConnectionThread started...");
         bRunning = true;
         // Cancel discovery because it otherwise slows down the connection.
         mBluetoothAdapter.cancelDiscovery();
@@ -69,6 +72,7 @@ public class BluetoothClientConnectionThread extends Thread {
         }
 
         bRunning = false;
+        Log.i(TAG,"BluetoothClientConnectionThread stopped...");
     }
 
     public boolean isRunning(){

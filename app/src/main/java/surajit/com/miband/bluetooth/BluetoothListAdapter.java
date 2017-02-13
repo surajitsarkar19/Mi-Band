@@ -1,4 +1,4 @@
-package surajit.com.miband;
+package surajit.com.miband.bluetooth;
 
 import android.content.Context;
 import android.graphics.Color;
@@ -11,6 +11,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.util.List;
+
+import surajit.com.miband.R;
 
 /**
  * Created by Surajit Sarkar on 1/2/17.

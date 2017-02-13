@@ -1,4 +1,4 @@
-package surajit.com.miband;
+package surajit.com.miband.bluetooth;
 
 import android.bluetooth.BluetoothSocket;
 import android.util.Log;
@@ -6,6 +6,8 @@ import android.util.Log;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+
+import surajit.com.miband.MainActivity;
 
 /**
  * Created by Surajit Sarkar on 9/2/17.
@@ -62,6 +64,7 @@ public class BluetoothConnectionThread extends Thread {
             }
         }
         bRunning = false;
+        Log.i(TAG, "END BluetoothConnectionThread");
     }
 
     public boolean isRunning(){

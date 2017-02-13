@@ -1,16 +1,19 @@
-package surajit.com.miband;
+package surajit.com.miband.bluetooth;
 
 import android.Manifest;
-import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
+import android.support.v7.app.AppCompatActivity;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -20,14 +23,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import surajit.com.miband.MainActivity;
+import surajit.com.miband.PermissionActivity;
+
 /**
- * Created by Surajit Sarkar on 10/2/17.
+ * Created by Surajit Sarkar on 13/2/17.
  * Company : Bitcanny Technologies Pvt. Ltd.
  * Email   : surajit@bitcanny.com
  */
 
-public abstract class BluetoothActivity extends PermissionActivity implements BluetoothServiceListener, BluetoothServerThread.BluetoothServerConnectionListener, BluetoothClientConnectionThread.BluetoothClientConnectionListener {
-
+public abstract class BluetoothActivityNew extends PermissionActivity implements BluetoothServiceListener {
     public static int REQUEST_ENABLE_BT = 345;
     public static int REQUEST_START_DISCOVERIBILITY = 267;
     public static int DISCOVERABLE_DURATION = 5*60;
@@ -40,81 +45,85 @@ public abstract class BluetoothActivity extends PermissionActivity implements Bl
 
     private static String TAG = MainActivity.TAG;
 
-    private Map<String, BluetoothConnectionThread> activeConnectionThreads; //active open bluetooth sockets
-    private Map<String, BluetoothClientConnectionThread> clientConnectionThreads; //active client connection threads;
-    private BluetoothServerThread bluetoothServerThread;
+    BluetoothService mService;
+    boolean mBound = false;
 
-    // Create a BroadcastReceiver for ACTION_FOUND.
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                // Discovery has found a device. Get the BluetoothDevice
-                // object and its info from the Intent.
 
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);//it will get all available devices
-                if(!isPaired(device)) {
-                    String deviceName = device.getName();
-                    String deviceHardwareAddress = device.getAddress(); // MAC address
-                    BluetoothItem bluetoothItem = new BluetoothItem(deviceName, deviceHardwareAddress, BluetoothListAdapter.TYPE_ITEM);
-                    bluetoothDeviceList.removeAll(unpairedList);
-                    unpairedList.add(bluetoothItem);
+    /** Defines callbacks for service binding, passed to bindService() */
+    private ServiceConnection mConnection = new ServiceConnection() {
 
-                    bluetoothDeviceList.addAll(unpairedList);
+        @Override
+        public void onServiceConnected(ComponentName className, IBinder service) {
+            // We've bound to LocalService, cast the IBinder and get LocalService instance
+            BluetoothService.LocalBinder binder = (BluetoothService.LocalBinder) service;
+            mService = binder.getService();
+            mService.registerCallback(BluetoothActivityNew.this);
+            mBound = true;
+        }
 
-                    onFoundNewDevice(device);
-                }
-                //arrayAdapter.notifyDataSetChanged();
-            } else if(action.equals(BluetoothAdapter.ACTION_DISCOVERY_STARTED)){
-                //scanAnimation.start();
-                onDiscoveryStarted();
-
-            } else if(action.equals(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)){
-                //resetScanButton();
-                onDiscoveryStopped();
-
-            } else if(action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)){
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                int bondState = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE,0);
-                if(bondState == BluetoothDevice.BOND_BONDED) {
-                    removeDeviceFromList(unpairedList,device.getAddress());
-                    listPairedDevices();
-                    if(unpairedList.size()>0){
-                        bluetoothDeviceList.addAll(unpairedList);
-                    }
-                    onDevicePaired(device);
-                } else if(bondState == BluetoothDevice.BOND_NONE){
-                    removeDeviceFromList(pairedList,device.getAddress());
-                    unpairedList.add(new BluetoothItem(device.getAddress(),device.getName()));
-                    //arrayAdapter.notifyDataSetChanged();
-                    onDeviceUnpaired(device);
-                }
-            }
+        @Override
+        public void onServiceDisconnected(ComponentName arg0) {
+            mBound = false;
         }
     };
+
+    protected abstract void notifyDeviceListChanged();
+
+    @Override
+    public void onFoundNewDevice(BluetoothDevice device) {
+        if(!isPaired(device)) {
+            String deviceName = device.getName();
+            String deviceHardwareAddress = device.getAddress(); // MAC address
+            BluetoothItem bluetoothItem = new BluetoothItem(deviceName, deviceHardwareAddress, BluetoothListAdapter.TYPE_ITEM);
+            bluetoothDeviceList.removeAll(unpairedList);
+            unpairedList.add(bluetoothItem);
+
+            bluetoothDeviceList.addAll(unpairedList);
+
+            notifyDeviceListChanged();
+        }
+    }
+
+    @Override
+    public void onDevicePaired(BluetoothDevice device) {
+        removeDeviceFromList(unpairedList,device.getAddress());
+        listPairedDevices();
+        if(unpairedList.size()>0){
+            bluetoothDeviceList.addAll(unpairedList);
+        }
+        notifyDeviceListChanged();
+    }
+
+    @Override
+    public void onDeviceUnpaired(BluetoothDevice device) {
+        removeDeviceFromList(pairedList,device.getAddress());
+        unpairedList.add(new BluetoothItem(device.getAddress(),device.getName()));
+        notifyDeviceListChanged();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        registerReceiver();
 
         bluetoothDeviceList = new ArrayList<>();
         pairedList = new ArrayList<>();
         unpairedList = new ArrayList<>();
         handler = new Handler();
 
-        activeConnectionThreads = new HashMap();
-        clientConnectionThreads = new HashMap();
+        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
-        startBluetooth();
+        //startBluetooth();
+
+        Intent intent = new Intent(this, BluetoothService.class);
+        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+
 
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        unregisterReceiver(mReceiver);
-        stopBluetooth();
+        unbindService(mConnection);
     }
 
     @Override
@@ -166,21 +175,11 @@ public abstract class BluetoothActivity extends PermissionActivity implements Bl
         }
     }
 
-    private void registerReceiver(){
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(BluetoothDevice.ACTION_FOUND);
-        intentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
-        intentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
-        intentFilter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
-        registerReceiver(mReceiver,intentFilter);
-    }
-
     private void sendMessage(String msg){
         onMessage(msg);
     }
 
     public void startBluetooth(){
-        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (mBluetoothAdapter == null) {
             //Snackbar.make(buttonScan,"Device does not support Bluetooth",Snackbar.LENGTH_SHORT).show();
             sendMessage("Device does not support Bluetooth");
@@ -191,20 +190,8 @@ public abstract class BluetoothActivity extends PermissionActivity implements Bl
                 startDiscoverability();
                 //listPairedDevices();
                 scanDevices();
-                startBluetoothServer();
+                //bluetoothUtility.start();
             }
-        }
-    }
-
-    public void stopBluetooth(){
-        if(mBluetoothAdapter!=null){
-            if(mBluetoothAdapter.isDiscovering()){
-                mBluetoothAdapter.cancelDiscovery();
-            }
-            stopBluetoothServer();
-            stopAllActiveConnectionThreads();
-            stopAllClientConnectionThreads();
-            mBluetoothAdapter = null;
         }
     }
 
@@ -216,61 +203,6 @@ public abstract class BluetoothActivity extends PermissionActivity implements Bl
                 startActivityForResult(discoverableIntent, REQUEST_START_DISCOVERIBILITY);
             }
         }
-    }
-
-    public void stopActiveConnectionThread(String id){
-        BluetoothConnectionThread thread = activeConnectionThreads.get(id);
-        thread.cancel();
-        activeConnectionThreads.remove(id);
-    }
-
-    public void stopClientConnectionThread(String id){
-        BluetoothClientConnectionThread thread = clientConnectionThreads.get(id);
-        thread.cancel();
-        clientConnectionThreads.remove(id);
-    }
-
-    public void stopAllActiveConnectionThreads(){
-        Set<String> set = activeConnectionThreads.keySet();
-        for (String id : set) {
-            BluetoothConnectionThread thread = activeConnectionThreads.get(id);
-            if(thread.isRunning()) {
-                thread.cancel();
-            }
-        }
-        activeConnectionThreads.clear();
-    }
-
-    public void stopAllClientConnectionThreads(){
-        Set<String> set = clientConnectionThreads.keySet();
-        Iterator<String> iterator = set.iterator();
-        while (iterator.hasNext()){
-            String id = iterator.next();
-            BluetoothClientConnectionThread thread = clientConnectionThreads.get(id);
-            if(thread.isRunning()) {
-                thread.cancel();
-            }
-        }
-        clientConnectionThreads.clear();
-    }
-
-    public void stopBluetoothServer(){
-        if(bluetoothServerThread!=null){
-            bluetoothServerThread.cancel();
-            /*try {
-                bluetoothServerThread.join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            } finally {
-                bluetoothServerThread = null;
-            }*/
-        }
-    }
-
-    public void startBluetoothServer(){
-        stopBluetoothServer();
-        bluetoothServerThread = new BluetoothServerThread(mBluetoothAdapter, this);
-        bluetoothServerThread.start();
     }
 
     public void askToEnableBluetooth(){
@@ -360,34 +292,18 @@ public abstract class BluetoothActivity extends PermissionActivity implements Bl
         }
     }
 
-    public void cancelBluetoothclientConnectionThread(BluetoothClientConnectionThread bluetoothClientConnectionThread){
-        if(bluetoothClientConnectionThread!=null){
-            if(bluetoothClientConnectionThread.isRunning()){
-                bluetoothClientConnectionThread.cancel();
-                try {
-                    bluetoothClientConnectionThread.join();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                bluetoothClientConnectionThread = null;
-            }
+    public BluetoothDevice getBluetoothDevice(String mac){
+        if(mBluetoothAdapter == null) {
+            return null;
+        } else{
+            return mBluetoothAdapter.getRemoteDevice(mac.toUpperCase());
         }
     }
 
-    public void connecTo(String mac){
-        if(mBluetoothAdapter == null)
-            return;
-        mBluetoothAdapter.cancelDiscovery();
-
-        BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(mac.toUpperCase());
-        if(isPaired(device)){
-            BluetoothClientConnectionThread bluetoothClientConnectionThread = new BluetoothClientConnectionThread(mBluetoothAdapter, device, BluetoothActivity.this);
-            clientConnectionThreads.put(mac,bluetoothClientConnectionThread);
-            bluetoothClientConnectionThread.start();
-        } else{
-            pairDevice(device);
+    public void connecTo(BluetoothDevice device){
+        if(bluetoothUtility!=null){
+            bluetoothUtility.connect(device,true);
         }
-
     }
 
     @Override
@@ -402,13 +318,4 @@ public abstract class BluetoothActivity extends PermissionActivity implements Bl
         finish();
     }
 
-    @Override
-    public void onAcceptBluetoothConnection(BluetoothSocket socket) {
-        onAccept(socket);
-    }
-
-    @Override
-    public void onClientConnected(BluetoothSocket socket) {
-        onConnect(socket);
-    }
 }

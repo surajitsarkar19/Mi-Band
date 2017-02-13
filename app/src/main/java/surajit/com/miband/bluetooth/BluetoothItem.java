@@ -1,4 +1,4 @@
-package surajit.com.miband;
+package surajit.com.miband.bluetooth;
 
 /**
  * Created by Surajit Sarkar on 2/2/17.
