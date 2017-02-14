@@ -2,17 +2,21 @@ package surajit.com.miband;
 
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
+import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import surajit.com.miband.bluetooth.BluetoothActivity;
+import surajit.com.miband.bluetooth.BluetoothActivityNew;
 
-public class BluetoothConnectionActivity extends BluetoothActivity {
+public class BluetoothConnectionActivity extends BluetoothActivityNew {
 
     TextView textViewConnectionStatus;
     ProgressBar progressbar;
+    private static String TAG = MainActivity.TAG;
+    BluetoothDevice device;
+    boolean bConnectionMade = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -21,6 +25,40 @@ public class BluetoothConnectionActivity extends BluetoothActivity {
 
         textViewConnectionStatus = (TextView) findViewById(R.id.textViewConnectionStatus);
         progressbar = (ProgressBar) findViewById(R.id.progressbar);
+
+        String statusMsg;
+        String mac = getIntent().getStringExtra("mac");
+        if(mac!=null) {
+            device = getBluetoothDevice(mac);
+            connectRemoteDevice();
+
+            statusMsg = "Connecting to " + device.getName();
+            setStatusMessage(statusMsg, true);
+        } else{
+            BluetoothDevice device1 = getIntent().getParcelableExtra("device");
+            statusMsg = "Connected to " + device1.getName();
+            setStatusMessage(statusMsg, false);
+        }
+    }
+
+    private void setStatusMessage(String msg, boolean bShowProgress){
+        if(msg!=null){
+            textViewConnectionStatus.setText(msg);
+        }
+        if(bShowProgress){
+            progressbar.setVisibility(View.VISIBLE);
+        } else{
+            progressbar.setVisibility(View.GONE);
+        }
+    }
+
+    private synchronized void connectRemoteDevice(){
+        if(!bConnectionMade){
+            if(device!=null && mService!=null) {
+                bConnectionMade = true;
+                mService.connect(device);
+            }
+        }
     }
 
     @Override
@@ -39,27 +77,29 @@ public class BluetoothConnectionActivity extends BluetoothActivity {
     }
 
     @Override
-    public void onDevicePaired(BluetoothDevice device) {
+    protected void onBluetoothServiceConnected() {
+        Log.i(TAG,"Service Connected");
+        connectRemoteDevice();
+    }
+
+    @Override
+    protected void notifyDeviceListChanged() {
 
     }
 
     @Override
-    public void onDeviceUnpaired(BluetoothDevice device) {
+    public void onConnect(BluetoothDevice device) {
+        Log.i(TAG,"Connected .. "+device);
+        setStatusMessage("Connected .. "+device,false);
+    }
+
+    @Override
+    public void onRead(int nRead, byte[] data) {
 
     }
 
     @Override
-    public void onFoundNewDevice(BluetoothDevice device) {
-
-    }
-
-    @Override
-    public void onAccept(BluetoothSocket socket) {
-
-    }
-
-    @Override
-    public void onConnect(BluetoothSocket socket) {
-
+    public void onError(String message) {
+        setStatusMessage(message, false);
     }
 }

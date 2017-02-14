@@ -73,55 +73,13 @@ public class BluetoothUtility {
     private BluetoothSocket tempSocket;
 
     public  synchronized BluetoothSocket getConnectedSocket(){
-
+        return tempSocket;
     }
 
-    private synchronized void setConnectedSocket(){
-
+    private synchronized void setConnectedSocket(BluetoothSocket sock){
+        tempSocket = sock;
     }
 
-    // Create a BroadcastReceiver for ACTION_FOUND.
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                // Discovery has found a device. Get the BluetoothDevice
-                // object and its info from the Intent.
-
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);//it will get all available devices
-                Bundle bundle = new Bundle();
-                bundle.putParcelable(Constants.EXTRA_DEVICE,device);
-                sendMessage(Constants.MESSAGE_NEW_DEVICE_FOUND,bundle);
-            } else if(action.equals(BluetoothAdapter.ACTION_DISCOVERY_STARTED)){
-                sendMessage(Constants.MESSAGE_SCAN_STARTED,null);
-
-            } else if(action.equals(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)){
-                sendMessage(Constants.MESSAGE_SCAN_STOPPED,null);
-
-            } else if(action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)){
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                int bondState = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE,0);
-
-                Bundle bundle = new Bundle();
-                bundle.putInt(Constants.EXTRA_BOND_STATE,bondState);
-                bundle.putParcelable(Constants.EXTRA_DEVICE,device);
-
-                if(bondState == BluetoothDevice.BOND_BONDED) {
-                    sendMessage(Constants.MESSAGE_DEVICE_PAIRED,bundle);
-                } else if(bondState == BluetoothDevice.BOND_NONE){
-                    sendMessage(Constants.MESSAGE_DEVICE_UNPAIRED,bundle);
-                }
-            }
-        }
-    };
-
-    private void sendMessage(int message, Bundle data){
-        Message msg = mHandler.obtainMessage(message);
-        if(data!=null) {
-            msg.setData(data);
-        }
-        mHandler.sendMessage(msg);
-    }
 
     /**
      * Constructor. Prepares a new BluetoothChat session.
@@ -149,6 +107,18 @@ public class BluetoothUtility {
         mHandler.obtainMessage(Constants.MESSAGE_STATE_CHANGE, state, -1).sendToTarget();
     }
 
+    private synchronized void setState(int state, BluetoothDevice device) {
+        Log.d(TAG, "setState() " + mState + " -> " + state);
+        mState = state;
+
+        // Give the new state to the Handler so the UI Activity can update
+        Message msg = mHandler.obtainMessage(Constants.MESSAGE_STATE_CHANGE, state, -1);
+        Bundle bundle = new Bundle();
+        bundle.putParcelable(Constants.EXTRA_DEVICE,device);
+        msg.setData(bundle);
+        msg.sendToTarget();
+    }
+
     /**
      * Return the current connection state.
      */
@@ -162,8 +132,6 @@ public class BluetoothUtility {
      */
     public synchronized void start() {
         Log.d(TAG, "start");
-
-        registerReceiver();
 
         // Cancel any thread attempting to make a connection
         if (mConnectThread != null) {
@@ -188,15 +156,6 @@ public class BluetoothUtility {
             mInsecureAcceptThread = new AcceptThread(false);
             mInsecureAcceptThread.start();
         }
-    }
-
-    private void registerReceiver(){
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(BluetoothDevice.ACTION_FOUND);
-        intentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
-        intentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
-        intentFilter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
-        mContext.registerReceiver(mReceiver,intentFilter);
     }
 
     /**
@@ -260,6 +219,9 @@ public class BluetoothUtility {
             mInsecureAcceptThread = null;
         }
 
+        setConnectedSocket(socket);
+
+
         // Start the thread to manage the connection and perform transmissions
         mConnectedThread = new ConnectedThread(socket, socketType);
         mConnectedThread.start();
@@ -271,7 +233,7 @@ public class BluetoothUtility {
         msg.setData(bundle);
         mHandler.sendMessage(msg);*/
 
-        setState(STATE_CONNECTED);
+        setState(STATE_CONNECTED,device);
     }
 
     /**
@@ -300,10 +262,7 @@ public class BluetoothUtility {
             mInsecureAcceptThread = null;
         }
         setState(STATE_NONE);
-
-        if(mContext!=null && mReceiver!=null){
-            mContext.unregisterReceiver(mReceiver);
-        }
+        setConnectedSocket(null);
     }
 
     /**
@@ -329,9 +288,9 @@ public class BluetoothUtility {
      */
     private void connectionFailed() {
         // Send a failure message back to the Activity
-        Message msg = mHandler.obtainMessage(Constants.MESSAGE_TOAST);
+        Message msg = mHandler.obtainMessage(Constants.MESSAGE_ERROR);
         Bundle bundle = new Bundle();
-        bundle.putString(Constants.TOAST, "Unable to connect device");
+        bundle.putString(Constants.EXTRA_MESSAGE, "Unable to connect device");
         msg.setData(bundle);
         mHandler.sendMessage(msg);
 
@@ -344,9 +303,9 @@ public class BluetoothUtility {
      */
     private void connectionLost() {
         // Send a failure message back to the Activity
-        Message msg = mHandler.obtainMessage(Constants.MESSAGE_TOAST);
+        Message msg = mHandler.obtainMessage(Constants.MESSAGE_ERROR);
         Bundle bundle = new Bundle();
-        bundle.putString(Constants.TOAST, "Device connection was lost");
+        bundle.putString(Constants.EXTRA_MESSAGE, "Device connection was lost");
         msg.setData(bundle);
         mHandler.sendMessage(msg);
 

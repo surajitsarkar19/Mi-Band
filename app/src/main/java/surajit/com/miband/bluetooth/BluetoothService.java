@@ -2,9 +2,11 @@ package surajit.com.miband.bluetooth;
 
 import android.app.Service;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Binder;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
@@ -16,7 +18,7 @@ import android.support.annotation.Nullable;
  * Email   : surajit@bitcanny.com
  */
 
-public abstract class BluetoothService extends Service {
+public class BluetoothService extends Service {
 
     private final IBinder mBinder = new LocalBinder();
     private Context context;
@@ -28,23 +30,27 @@ public abstract class BluetoothService extends Service {
         public boolean handleMessage(Message msg) {
             if(listener!=null) {
                 switch (msg.what) {
-                    case Constants.MESSAGE_NEW_DEVICE_FOUND:
-                        BluetoothDevice device = msg.getData().getParcelable(Constants.EXTRA_DEVICE);
-                        listener.onFoundNewDevice(device);
+
+                    case Constants.MESSAGE_READ:
+                        int readLength = msg.arg1;
+                        byte[] data = (byte[])msg.obj;
+                        listener.onRead(readLength,data);
                         break;
-                    case Constants.MESSAGE_SCAN_STARTED:
-                        listener.onDiscoveryStarted();
+
+                    case Constants.MESSAGE_STATE_CHANGE:
+                        int state = msg.arg1;
+                        if(state == BluetoothUtility.STATE_CONNECTED){
+                            Bundle bundle = msg.getData();
+                            BluetoothDevice device = bundle.getParcelable(Constants.EXTRA_DEVICE);
+                            listener.onConnect(device);
+                        } else{
+                            //listener.
+                        }
                         break;
-                    case Constants.MESSAGE_SCAN_STOPPED:
-                        listener.onDiscoveryStopped();
-                        break;
-                    case Constants.MESSAGE_DEVICE_PAIRED:
-                        BluetoothDevice device1 = msg.getData().getParcelable(Constants.EXTRA_DEVICE);
-                        listener.onDevicePaired(device1);
-                        break;
-                    case Constants.MESSAGE_DEVICE_UNPAIRED:
-                        BluetoothDevice device2 = msg.getData().getParcelable(Constants.EXTRA_DEVICE);
-                        listener.onDeviceUnpaired(device2);
+
+                    case Constants.MESSAGE_ERROR:
+                        String errrorMessage = msg.getData().getString(Constants.EXTRA_MESSAGE);
+                        listener.onError(errrorMessage);
                         break;
 
                 }
@@ -80,4 +86,37 @@ public abstract class BluetoothService extends Service {
     public void onDestroy() {
         super.onDestroy();
     }
+
+    public void start(){
+        if(bluetoothUtility!=null){
+            bluetoothUtility.start();
+        }
+    }
+
+    public void stop(){
+        if(bluetoothUtility!=null){
+            bluetoothUtility.stop();
+        }
+    }
+
+    public void write(byte[] buffer) {
+        if(bluetoothUtility!=null){
+            bluetoothUtility.write(buffer);
+        }
+    }
+
+    public void connect(BluetoothDevice device){
+        if(bluetoothUtility!=null){
+            bluetoothUtility.connect(device,true);
+        }
+    }
+
+    public BluetoothSocket getConnectedSocket(){
+        if(bluetoothUtility!=null){
+            return bluetoothUtility.getConnectedSocket();
+        } else{
+            return null;
+        }
+    }
+
 }

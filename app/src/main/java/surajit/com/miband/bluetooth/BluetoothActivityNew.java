@@ -3,7 +3,6 @@ package surajit.com.miband.bluetooth;
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -13,14 +12,11 @@ import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
-import android.support.v7.app.AppCompatActivity;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import surajit.com.miband.MainActivity;
@@ -45,8 +41,38 @@ public abstract class BluetoothActivityNew extends PermissionActivity implements
 
     private static String TAG = MainActivity.TAG;
 
-    BluetoothService mService;
-    boolean mBound = false;
+    protected BluetoothService mService;
+    protected boolean mBound = false;
+
+    // Create a BroadcastReceiver for ACTION_FOUND.
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
+                // Discovery has found a device. Get the BluetoothDevice
+                // object and its info from the Intent.
+
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);//it will get all available devices
+                onFoundNewDevice(device);
+            } else if(action.equals(BluetoothAdapter.ACTION_DISCOVERY_STARTED)){
+                onDiscoveryStarted();
+
+            } else if(action.equals(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)){
+                onDiscoveryStopped();
+
+            } else if(action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)){
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                int bondState = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE,0);
+
+                if(bondState == BluetoothDevice.BOND_BONDED) {
+                    onDevicePaired(device);
+                } else if(bondState == BluetoothDevice.BOND_NONE){
+                    onDeviceUnpaired(device);
+                }
+            }
+        }
+    };
+
 
 
     /** Defines callbacks for service binding, passed to bindService() */
@@ -59,6 +85,7 @@ public abstract class BluetoothActivityNew extends PermissionActivity implements
             mService = binder.getService();
             mService.registerCallback(BluetoothActivityNew.this);
             mBound = true;
+            onBluetoothServiceConnected();
         }
 
         @Override
@@ -67,6 +94,16 @@ public abstract class BluetoothActivityNew extends PermissionActivity implements
         }
     };
 
+    private void registerReceiver(){
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(BluetoothDevice.ACTION_FOUND);
+        intentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
+        intentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+        intentFilter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
+        registerReceiver(mReceiver,intentFilter);
+    }
+
+    protected abstract void onBluetoothServiceConnected();
     protected abstract void notifyDeviceListChanged();
 
     @Override
@@ -110,9 +147,11 @@ public abstract class BluetoothActivityNew extends PermissionActivity implements
         unpairedList = new ArrayList<>();
         handler = new Handler();
 
+        registerReceiver();
+
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
-        //startBluetooth();
+        startBluetooth();
 
         Intent intent = new Intent(this, BluetoothService.class);
         bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
@@ -124,6 +163,8 @@ public abstract class BluetoothActivityNew extends PermissionActivity implements
     protected void onDestroy() {
         super.onDestroy();
         unbindService(mConnection);
+        unregisterReceiver(mReceiver);
+
     }
 
     @Override
@@ -188,8 +229,8 @@ public abstract class BluetoothActivityNew extends PermissionActivity implements
                 askToEnableBluetooth();
             } else{
                 startDiscoverability();
-                //listPairedDevices();
-                scanDevices();
+                listPairedDevices();
+                //scanDevices();
                 //bluetoothUtility.start();
             }
         }
@@ -242,7 +283,7 @@ public abstract class BluetoothActivityNew extends PermissionActivity implements
             }
         }
         bluetoothDeviceList.addAll(pairedList);
-        onFoundNewDevice(null);
+        notifyDeviceListChanged();
     }
 
     public void scanDevices(){
@@ -250,7 +291,7 @@ public abstract class BluetoothActivityNew extends PermissionActivity implements
             return;
         listPairedDevices();
         bluetoothDeviceList.removeAll(unpairedList);
-        onFoundNewDevice(null);
+        notifyDeviceListChanged();
         unpairedList.clear();
 
         if(!isPermissionGranted(Manifest.permission.ACCESS_FINE_LOCATION)){
@@ -262,8 +303,8 @@ public abstract class BluetoothActivityNew extends PermissionActivity implements
             return;
         }
         unpairedList.add(new BluetoothItem("Available Devices","",BluetoothListAdapter.TYPE_TITLE));
-        stopDiscovery();
-        if(startDiscovery()){
+        stopScan();
+        if(startScan()){
             sendMessage("Scan started...");
         } else{
             sendMessage("Scan error...");
@@ -278,7 +319,7 @@ public abstract class BluetoothActivityNew extends PermissionActivity implements
         }
     }
 
-    public boolean startDiscovery(){
+    public boolean startScan(){
         if(mBluetoothAdapter!= null){
             return mBluetoothAdapter.startDiscovery();
         } else{
@@ -286,7 +327,7 @@ public abstract class BluetoothActivityNew extends PermissionActivity implements
         }
     }
 
-    public void stopDiscovery(){
+    public void stopScan(){
         if(mBluetoothAdapter!= null){
             mBluetoothAdapter.cancelDiscovery();
         }
@@ -297,12 +338,6 @@ public abstract class BluetoothActivityNew extends PermissionActivity implements
             return null;
         } else{
             return mBluetoothAdapter.getRemoteDevice(mac.toUpperCase());
-        }
-    }
-
-    public void connecTo(BluetoothDevice device){
-        if(bluetoothUtility!=null){
-            bluetoothUtility.connect(device,true);
         }
     }
 

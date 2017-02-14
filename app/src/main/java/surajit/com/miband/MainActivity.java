@@ -9,15 +9,16 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.support.design.widget.Snackbar;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.ListView;
 
-import surajit.com.miband.bluetooth.BluetoothActivity;
+import surajit.com.miband.bluetooth.BluetoothActivityNew;
 import surajit.com.miband.bluetooth.BluetoothListAdapter;
 
-public class MainActivity extends BluetoothActivity implements View.OnClickListener, AdapterView.OnItemClickListener {
+public class MainActivity extends BluetoothActivityNew implements View.OnClickListener, AdapterView.OnItemClickListener {
 
     private Button buttonScan;
     private ListView listViewBluetooth;
@@ -40,8 +41,6 @@ public class MainActivity extends BluetoothActivity implements View.OnClickListe
         listViewBluetooth.setAdapter(arrayAdapter);
         buttonScan.setOnClickListener(this);
         listViewBluetooth.setOnItemClickListener(this);
-
-        startBluetooth();
     }
 
     private void setUpAnimation(){
@@ -73,7 +72,7 @@ public class MainActivity extends BluetoothActivity implements View.OnClickListe
             if(buttonScan.getText().toString().equalsIgnoreCase("SCAN")) {
                 scanDevices();
             } else{
-                stopDiscovery();
+                stopScan();
                 stopScanAnimation();
             }
         }
@@ -112,33 +111,34 @@ public class MainActivity extends BluetoothActivity implements View.OnClickListe
     }
 
     @Override
-    public void onDevicePaired(BluetoothDevice device) {
+    protected void onBluetoothServiceConnected() {
+        Log.i(TAG,"Service Connected");
+        mService.start();// start server
+    }
+
+    @Override
+    protected void notifyDeviceListChanged() {
         if(arrayAdapter!=null) {
             arrayAdapter.notifyDataSetChanged();
         }
     }
 
     @Override
-    public void onDeviceUnpaired(BluetoothDevice device) {
-        if(arrayAdapter!=null) {
-            arrayAdapter.notifyDataSetChanged();
-        }
+    public void onConnect(BluetoothDevice device) {
+        //Snackbar.make(listViewBluetooth,"New connection accepted "+socket,Snackbar.LENGTH_SHORT).show();
+
+        Intent intent = new Intent(this,BluetoothConnectionActivity.class);//get the socket connection from bluetoothservice
+        intent.putExtra("device",device);
+        startActivity(intent);
     }
 
     @Override
-    public void onFoundNewDevice(BluetoothDevice device) {
-        if(arrayAdapter!=null) {
-            arrayAdapter.notifyDataSetChanged();
-        }
-    }
-
-    @Override
-    public void onAccept(BluetoothSocket socket) {
+    public void onRead(int nRead, byte[] data) {
 
     }
 
     @Override
-    public void onConnect(BluetoothSocket socket) {
+    public void onError(String message) {
 
     }
 }

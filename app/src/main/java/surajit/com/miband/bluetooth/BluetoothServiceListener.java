@@ -16,6 +16,7 @@ public interface BluetoothServiceListener {
     void onDevicePaired(BluetoothDevice device);
     void onDeviceUnpaired(BluetoothDevice device);
     void onFoundNewDevice(BluetoothDevice device);//may contain null value for paired devices
-    void onAccept(BluetoothSocket socket);
-    void onConnect(BluetoothSocket socket);
+    void onConnect(BluetoothDevice device);
+    void onRead(int nRead, byte[] data);
+    void onError(String message);
 }
