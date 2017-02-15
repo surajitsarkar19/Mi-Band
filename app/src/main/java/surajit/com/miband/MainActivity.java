@@ -4,7 +4,6 @@ import android.animation.ArgbEvaluator;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -15,10 +14,10 @@ import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.ListView;
 
-import surajit.com.miband.bluetooth.BluetoothActivityNew;
+import surajit.com.miband.bluetooth.BluetoothActivity;
 import surajit.com.miband.bluetooth.BluetoothListAdapter;
 
-public class MainActivity extends BluetoothActivityNew implements View.OnClickListener, AdapterView.OnItemClickListener {
+public class MainActivity extends BluetoothActivity implements View.OnClickListener, AdapterView.OnItemClickListener {
 
     private Button buttonScan;
     private ListView listViewBluetooth;

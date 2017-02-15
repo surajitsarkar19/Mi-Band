@@ -34,6 +34,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
 
+import surajit.com.miband.MainActivity;
+
 /**
  * This class does all the work for setting up and managing Bluetooth
  * connections with other devices. It has a thread that listens for
@@ -42,7 +44,7 @@ import java.util.UUID;
  */
 public class BluetoothUtility {
     // Debugging
-    private static final String TAG = "BluetoothChatService";
+    private static final String TAG = MainActivity.TAG;
 
     // Name for the SDP record when creating server socket
     private static final String NAME_SECURE = "BluetoothChatSecure";
@@ -131,7 +133,7 @@ public class BluetoothUtility {
      * session in listening (server) mode. Called by the Activity onResume()
      */
     public synchronized void start() {
-        Log.d(TAG, "start");
+        Log.d(TAG, "start() bluetooth connection threads");
 
         // Cancel any thread attempting to make a connection
         if (mConnectThread != null) {
@@ -240,7 +242,7 @@ public class BluetoothUtility {
      * Stop all threads
      */
     public synchronized void stop() {
-        Log.d(TAG, "stop");
+        Log.d(TAG, "stop() bluetooth connection threads");
 
         if (mConnectThread != null) {
             mConnectThread.cancel();
@@ -287,27 +289,29 @@ public class BluetoothUtility {
      * Indicate that the connection attempt failed and notify the UI Activity.
      */
     private void connectionFailed() {
+        Log.i(TAG, "connectionFailed");
         // Send a failure message back to the Activity
-        Message msg = mHandler.obtainMessage(Constants.MESSAGE_ERROR);
-        Bundle bundle = new Bundle();
-        bundle.putString(Constants.EXTRA_MESSAGE, "Unable to connect device");
-        msg.setData(bundle);
-        mHandler.sendMessage(msg);
+        sendErrorMessage("Unable to connect device");
 
         // Start the service over to restart listening mode
         BluetoothUtility.this.start();
+    }
+
+    private void sendErrorMessage(String message){
+        Message msg = mHandler.obtainMessage(Constants.MESSAGE_ERROR);
+        Bundle bundle = new Bundle();
+        bundle.putString(Constants.EXTRA_MESSAGE, message);
+        msg.setData(bundle);
+        mHandler.sendMessage(msg);
     }
 
     /**
      * Indicate that the connection was lost and notify the UI Activity.
      */
     private void connectionLost() {
+        Log.i(TAG, "END connectionLost");
         // Send a failure message back to the Activity
-        Message msg = mHandler.obtainMessage(Constants.MESSAGE_ERROR);
-        Bundle bundle = new Bundle();
-        bundle.putString(Constants.EXTRA_MESSAGE, "Device connection was lost");
-        msg.setData(bundle);
-        mHandler.sendMessage(msg);
+        sendErrorMessage("Device connection was lost");
 
         // Start the service over to restart listening mode
         BluetoothUtility.this.start();
@@ -417,11 +421,9 @@ public class BluetoothUtility {
             // given BluetoothDevice
             try {
                 if (secure) {
-                    tmp = device.createRfcommSocketToServiceRecord(
-                            MY_UUID_SECURE);
+                    tmp = device.createRfcommSocketToServiceRecord(MY_UUID_SECURE);
                 } else {
-                    tmp = device.createInsecureRfcommSocketToServiceRecord(
-                            MY_UUID_INSECURE);
+                    tmp = device.createInsecureRfcommSocketToServiceRecord(MY_UUID_INSECURE);
                 }
             } catch (IOException e) {
                 Log.e(TAG, "Socket Type: " + mSocketType + "create() failed", e);
@@ -446,10 +448,10 @@ public class BluetoothUtility {
                 try {
                     mmSocket.close();
                 } catch (IOException e2) {
-                    Log.e(TAG, "unable to close() " + mSocketType +
-                            " socket during connection failure", e2);
+                    Log.e(TAG, "unable to close() " + mSocketType + " socket during connection failure", e2);
                 }
                 connectionFailed();
+                Log.i(TAG, "END mConnectThread SocketType:" + mSocketType);
                 return;
             }
 
@@ -460,6 +462,8 @@ public class BluetoothUtility {
 
             // Start the connected thread
             connected(mmSocket, mmDevice, mSocketType);
+
+            Log.i(TAG, "END mConnectThread SocketType:" + mSocketType);
         }
 
         public void cancel() {
@@ -515,11 +519,14 @@ public class BluetoothUtility {
                 } catch (IOException e) {
                     Log.e(TAG, "disconnected", e);
                     connectionLost();
+
+                    Log.i(TAG, "END mConnectedThread");
                     // Start the service over to restart listening mode
                     BluetoothUtility.this.start();
                     break;
                 }
             }
+            Log.i(TAG, "END mConnectedThread");
         }
 
         /**

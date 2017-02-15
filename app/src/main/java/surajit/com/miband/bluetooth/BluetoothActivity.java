@@ -12,6 +12,7 @@ import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.util.Log;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -28,7 +29,7 @@ import surajit.com.miband.PermissionActivity;
  * Email   : surajit@bitcanny.com
  */
 
-public abstract class BluetoothActivityNew extends PermissionActivity implements BluetoothServiceListener {
+public abstract class BluetoothActivity extends PermissionActivity implements BluetoothServiceListener {
     public static int REQUEST_ENABLE_BT = 345;
     public static int REQUEST_START_DISCOVERIBILITY = 267;
     public static int DISCOVERABLE_DURATION = 5*60;
@@ -55,9 +56,11 @@ public abstract class BluetoothActivityNew extends PermissionActivity implements
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);//it will get all available devices
                 onFoundNewDevice(device);
             } else if(action.equals(BluetoothAdapter.ACTION_DISCOVERY_STARTED)){
+                Log.i(TAG,"Scan Started");
                 onDiscoveryStarted();
 
             } else if(action.equals(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)){
+                Log.i(TAG,"Scan Finished");
                 onDiscoveryStopped();
 
             } else if(action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)){
@@ -83,14 +86,16 @@ public abstract class BluetoothActivityNew extends PermissionActivity implements
             // We've bound to LocalService, cast the IBinder and get LocalService instance
             BluetoothService.LocalBinder binder = (BluetoothService.LocalBinder) service;
             mService = binder.getService();
-            mService.registerCallback(BluetoothActivityNew.this);
+            mService.registerCallback(BluetoothActivity.this);
             mBound = true;
             onBluetoothServiceConnected();
+            Log.i(TAG,"Bluetooth Service Bounded");
         }
 
         @Override
         public void onServiceDisconnected(ComponentName arg0) {
             mBound = false;
+            Log.i(TAG,"Bluetooth Service Unbounded");
         }
     };
 
@@ -109,6 +114,7 @@ public abstract class BluetoothActivityNew extends PermissionActivity implements
     @Override
     public void onFoundNewDevice(BluetoothDevice device) {
         if(!isPaired(device)) {
+            Log.i(TAG,"New Device found :"+device.getName());
             String deviceName = device.getName();
             String deviceHardwareAddress = device.getAddress(); // MAC address
             BluetoothItem bluetoothItem = new BluetoothItem(deviceName, deviceHardwareAddress, BluetoothListAdapter.TYPE_ITEM);
@@ -123,6 +129,7 @@ public abstract class BluetoothActivityNew extends PermissionActivity implements
 
     @Override
     public void onDevicePaired(BluetoothDevice device) {
+        Log.i(TAG,device.getName() + "Paired");
         removeDeviceFromList(unpairedList,device.getAddress());
         listPairedDevices();
         if(unpairedList.size()>0){
@@ -133,6 +140,7 @@ public abstract class BluetoothActivityNew extends PermissionActivity implements
 
     @Override
     public void onDeviceUnpaired(BluetoothDevice device) {
+        Log.i(TAG,device.getName() + "Unpaired");
         removeDeviceFromList(pairedList,device.getAddress());
         unpairedList.add(new BluetoothItem(device.getAddress(),device.getName()));
         notifyDeviceListChanged();

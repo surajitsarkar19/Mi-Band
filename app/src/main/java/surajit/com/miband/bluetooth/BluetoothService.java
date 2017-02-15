@@ -11,6 +11,9 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.support.annotation.Nullable;
+import android.util.Log;
+
+import surajit.com.miband.MainActivity;
 
 /**
  * Created by Surajit Sarkar on 13/2/17.
@@ -24,6 +27,7 @@ public class BluetoothService extends Service {
     private Context context;
     private BluetoothUtility bluetoothUtility;
     private BluetoothServiceListener listener;
+    private String TAG = MainActivity.TAG;
 
     private Handler handler = new Handler(new Handler.Callback() {
         @Override
@@ -72,6 +76,7 @@ public class BluetoothService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        Log.i(TAG,"Bluetooth Service Started");
         context = getApplicationContext();
         bluetoothUtility = new BluetoothUtility(context,handler);
     }
@@ -85,6 +90,8 @@ public class BluetoothService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        stop();
+        Log.i(TAG,"Bluetooth Service Destroyed");
     }
 
     public void start(){
