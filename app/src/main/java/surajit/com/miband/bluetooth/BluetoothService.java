@@ -152,8 +152,12 @@ public class BluetoothService extends Service {
     }
 
     public void write(byte[] buffer) {
+        write(buffer,0,buffer.length);
+    }
+
+    public void write(byte[] buffer,int offset, int count) {
         if(bluetoothUtility!=null){
-            bluetoothUtility.write(buffer);
+            bluetoothUtility.write(buffer,offset,count);
         }
     }
 

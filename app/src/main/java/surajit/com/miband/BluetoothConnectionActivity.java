@@ -18,15 +18,10 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
 import surajit.com.miband.bluetooth.BluetoothActivity;
 
@@ -42,7 +37,7 @@ public class BluetoothConnectionActivity extends BluetoothActivity implements Vi
     private static int RESULT_LOAD_IMAGE = 593;
     private String imagePath;
     private ByteBuffer headerBuffer;
-    private int lengthBytesRead;
+    private int headerBytesRead;
     private long imageBytesRead;
     private long imageSize;
     int headerSize;
@@ -63,11 +58,7 @@ public class BluetoothConnectionActivity extends BluetoothActivity implements Vi
         buttonBrowse.setOnClickListener(this);
         buttonSend.setOnClickListener(this);
 
-        headerSize = 8;
-        headerBuffer = ByteBuffer.allocate(headerSize);
-        lengthBytesRead = 0;
-        imageBytesRead = 0;
-        imageSize = 0;
+        resetData();
 
         requestPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE,"");
 
@@ -84,6 +75,18 @@ public class BluetoothConnectionActivity extends BluetoothActivity implements Vi
             statusMsg = "Connected to " + device1.getName();
             setStatusMessage(statusMsg, false);
         }
+    }
+
+    private void resetData(){
+        headerSize = 8;
+        if(headerBuffer!=null){
+            headerBuffer.clear();
+        } else {
+            headerBuffer = ByteBuffer.allocate(headerSize);
+        }
+        headerBytesRead = 0;
+        imageBytesRead = 0;
+        imageSize = 0;
     }
 
     private void setStatusMessage(String msg, boolean bShowProgress){
@@ -139,37 +142,34 @@ public class BluetoothConnectionActivity extends BluetoothActivity implements Vi
     }
 
     @Override
-    public synchronized void onRead(int nRead, byte[] data) {
+    public void onRead(int nRead, byte[] data) {
 
         try {
             int offset = 0;
-            if (lengthBytesRead < headerSize) {
+            if (headerBytesRead < headerSize) {
                 Log.i(TAG,"header data is not received yet");
-                int remainingBytes = headerSize - lengthBytesRead;
-                int headerOffset = lengthBytesRead;
+                int remainingBytes = headerSize - headerBytesRead;
+                int headerOffset = headerBytesRead;
                 if (nRead > remainingBytes) {
-                    lengthBytesRead += remainingBytes;
+                    headerBytesRead += remainingBytes;
                     offset = remainingBytes;
                 } else {
-                    lengthBytesRead += nRead;
+                    headerBytesRead += nRead;
                     offset = nRead;
                 }
 
                 headerBuffer.put(data, headerOffset, remainingBytes);
 
 
-                if(lengthBytesRead < headerSize){
+                if(headerBytesRead < headerSize){
                     return;
                 }
-                else if (lengthBytesRead == headerSize) {
+                else if (headerBytesRead == headerSize) {
                     imageSize = headerBuffer.getLong(0);
                     //imageBuffer = ByteBuffer.allocate(imageSize*2);
-                    tempFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)+File.separator+"srs_img.png");
-                    tempFile.mkdirs();
-                    if(!tempFile.exists()){
-                        tempFile.createNewFile();
-                    }
-                    fileOutputStream = new FileOutputStream(tempFile,true);
+                    tempFile = new File(Environment.getExternalStorageDirectory(),"srs_img.png");
+                    boolean fileExists = tempFile.createNewFile();
+                    fileOutputStream = new FileOutputStream(tempFile);
                     setStatusMessage("Receiving img size "+imageSize,false);
 
                     Log.i(TAG,"Image Size  = "+imageSize);
@@ -182,14 +182,14 @@ public class BluetoothConnectionActivity extends BluetoothActivity implements Vi
                 }
 
             } else{
-                Log.i(TAG,"header data found...");
+                Log.i(TAG,"header data received...");
             }
 
             //Log.i(TAG,"Read size "+nRead+" Total Received length "+imageBytesRead);
 
 
             int dataLength = nRead;
-            if(offset>0 && lengthBytesRead == headerSize){
+            if(offset>0 && headerBytesRead == headerSize){
                 dataLength = nRead - offset;
                 Log.i(TAG,"Read size "+nRead+" Data size "+dataLength+" Total Received length "+imageBytesRead);
                 fileOutputStream.write(data, (int)imageBytesRead, dataLength);
@@ -203,10 +203,8 @@ public class BluetoothConnectionActivity extends BluetoothActivity implements Vi
             if (imageSize>0 && imageBytesRead == imageSize) {
                 fileOutputStream.close();
                 imagePath = tempFile.getAbsolutePath();
-                lengthBytesRead = 0;
-                imageBytesRead = 0;
+                resetData();
                 displayImage();
-                imageSize = 0;
             }
 
         }catch (Exception e){
@@ -260,8 +258,9 @@ public class BluetoothConnectionActivity extends BluetoothActivity implements Vi
                     mService.write(length);
                     FileInputStream inputStream = new FileInputStream(file);
                     byte[] buffer = new byte[1024];
-                    while(inputStream.read(buffer)!=-1){
-                        mService.write(buffer);
+                    int count;
+                    while((count = inputStream.read(buffer))>0){
+                        mService.write(buffer,0,count);
                     }
                 } catch (Exception e) {
                     e.printStackTrace();

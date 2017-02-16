@@ -273,7 +273,7 @@ public class BluetoothUtility {
      * @param out The bytes to write
      * @see ConnectedThread#write(byte[])
      */
-    public void write(byte[] out) {
+    public void write(byte[] out,int offset, int count) {
         // Create temporary object
         ConnectedThread r;
         // Synchronize a copy of the ConnectedThread
@@ -282,7 +282,11 @@ public class BluetoothUtility {
             r = mConnectedThread;
         }
         // Perform the write unsynchronized
-        r.write(out);
+        r.write(out,offset,count);
+    }
+
+    public void write(byte[] buffer) {
+        write(buffer,0,buffer.length);
     }
 
     /**
@@ -544,8 +548,12 @@ public class BluetoothUtility {
          * @param buffer The bytes to write
          */
         public void write(byte[] buffer) {
+            write(buffer,0,buffer.length);
+        }
+
+        public void write(byte[] buffer,int offset, int count) {
             try {
-                mmOutStream.write(buffer);
+                mmOutStream.write(buffer,offset,count);
                 mmOutStream.flush();
 
                 // Share the sent message back to the UI Activity
