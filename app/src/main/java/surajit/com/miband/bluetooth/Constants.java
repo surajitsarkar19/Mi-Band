@@ -26,6 +26,7 @@ public interface Constants {
     public static final int MESSAGE_READ = 2;
     public static final int MESSAGE_WRITE = 3;
     public static final int MESSAGE_ERROR = 4;
+    public static final int MESSAGE_SUCCESS = 5;
 
 
     public static final String EXTRA_DEVICE = "device";

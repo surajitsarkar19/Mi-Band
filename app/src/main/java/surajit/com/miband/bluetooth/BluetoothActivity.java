@@ -13,6 +13,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
+import android.widget.Toast;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -173,6 +174,22 @@ public abstract class BluetoothActivity extends PermissionActivity implements Bl
         unbindService(mConnection);
         unregisterReceiver(mReceiver);
 
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if(mService!=null){
+            mService.registerCallback(BluetoothActivity.this);
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if(mService!=null){
+            mService.registerCallback(BluetoothActivity.this);
+        }
     }
 
     @Override
@@ -361,4 +378,8 @@ public abstract class BluetoothActivity extends PermissionActivity implements Bl
         finish();
     }
 
+    @Override
+    public void onSuccess(String message) {
+        Toast.makeText(this,message,Toast.LENGTH_SHORT).show();
+    }
 }

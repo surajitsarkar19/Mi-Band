@@ -8,6 +8,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
@@ -18,7 +19,14 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 import surajit.com.miband.bluetooth.BluetoothActivity;
 
@@ -32,11 +40,14 @@ public class BluetoothConnectionActivity extends BluetoothActivity implements Vi
     private Button buttonBrowse,buttonSend;
     private ImageView imageViewIcon;
     private static int RESULT_LOAD_IMAGE = 593;
-    private Bitmap imageBitmap;
-    private ByteBuffer readBuffer,imageBuffer;
+    private String imagePath;
+    private ByteBuffer headerBuffer;
     private int lengthBytesRead;
-    private int imageBytesRead;
-    private int imageSize;
+    private long imageBytesRead;
+    private long imageSize;
+    int headerSize;
+    private File tempFile;
+    private FileOutputStream fileOutputStream;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,12 +63,13 @@ public class BluetoothConnectionActivity extends BluetoothActivity implements Vi
         buttonBrowse.setOnClickListener(this);
         buttonSend.setOnClickListener(this);
 
-        readBuffer = ByteBuffer.allocate(1024);
+        headerSize = 8;
+        headerBuffer = ByteBuffer.allocate(headerSize);
         lengthBytesRead = 0;
         imageBytesRead = 0;
         imageSize = 0;
 
-        requestPermission(Manifest.permission.READ_EXTERNAL_STORAGE,"");
+        requestPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE,"");
 
         String statusMsg;
         String mac = getIntent().getStringExtra("mac");
@@ -127,37 +139,90 @@ public class BluetoothConnectionActivity extends BluetoothActivity implements Vi
     }
 
     @Override
-    public void onRead(int nRead, byte[] data) {
-        int offset = 0;
-        if(lengthBytesRead<8){
+    public synchronized void onRead(int nRead, byte[] data) {
 
-            int remainingBytes = 8 - lengthBytesRead;
-            if(nRead>remainingBytes){
-                lengthBytesRead += remainingBytes;
-                offset = remainingBytes;
+        try {
+            int offset = 0;
+            if (lengthBytesRead < headerSize) {
+                Log.i(TAG,"header data is not received yet");
+                int remainingBytes = headerSize - lengthBytesRead;
+                int headerOffset = lengthBytesRead;
+                if (nRead > remainingBytes) {
+                    lengthBytesRead += remainingBytes;
+                    offset = remainingBytes;
+                } else {
+                    lengthBytesRead += nRead;
+                    offset = nRead;
+                }
+
+                headerBuffer.put(data, headerOffset, remainingBytes);
+
+
+                if(lengthBytesRead < headerSize){
+                    return;
+                }
+                else if (lengthBytesRead == headerSize) {
+                    imageSize = headerBuffer.getLong(0);
+                    //imageBuffer = ByteBuffer.allocate(imageSize*2);
+                    tempFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)+File.separator+"srs_img.png");
+                    tempFile.mkdirs();
+                    if(!tempFile.exists()){
+                        tempFile.createNewFile();
+                    }
+                    fileOutputStream = new FileOutputStream(tempFile,true);
+                    setStatusMessage("Receiving img size "+imageSize,false);
+
+                    Log.i(TAG,"Image Size  = "+imageSize);
+
+                    if(nRead - offset <= 0){
+                        return; // no data to read
+                    }
+                } else{
+                    return;
+                }
+
             } else{
-                lengthBytesRead+=nRead;
-                offset = nRead;
+                Log.i(TAG,"header data found...");
             }
 
-            if(lengthBytesRead == 8){
-                imageSize = readBuffer.getInt();
-                imageBuffer = ByteBuffer.allocate(imageSize);
-            }
+            //Log.i(TAG,"Read size "+nRead+" Total Received length "+imageBytesRead);
 
-        }
-        if(offset != nRead){
-            imageBuffer.put(data,offset,nRead-offset);
-            if(imageBuffer.array().length == imageSize){
+
+            int dataLength = nRead;
+            if(offset>0 && lengthBytesRead == headerSize){
+                dataLength = nRead - offset;
+                Log.i(TAG,"Read size "+nRead+" Data size "+dataLength+" Total Received length "+imageBytesRead);
+                fileOutputStream.write(data, (int)imageBytesRead, dataLength);
+                fileOutputStream.flush();
+            } else {
+                Log.i(TAG,"Read size "+dataLength+" Total Received length "+imageBytesRead);
+                fileOutputStream.write(data);
+                fileOutputStream.flush();
+            }
+            imageBytesRead += dataLength;
+            if (imageSize>0 && imageBytesRead == imageSize) {
+                fileOutputStream.close();
+                imagePath = tempFile.getAbsolutePath();
+                lengthBytesRead = 0;
+                imageBytesRead = 0;
                 displayImage();
+                imageSize = 0;
             }
+
+        }catch (Exception e){
+            e.printStackTrace();
         }
     }
 
     private void displayImage(){
-        Bitmap bitmap = BitmapFactory.decodeByteArray(imageBuffer.array(),0,imageSize);
-        if(bitmap!=null){
-            imageViewIcon.setImageBitmap(bitmap);
+        try {
+            Bitmap imageBitmap  = BitmapFactory.decodeFile(imagePath);
+            if(imageBitmap!=null){
+                imageViewIcon.setImageBitmap(imageBitmap);
+            }
+            headerBuffer.clear();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -179,22 +244,31 @@ public class BluetoothConnectionActivity extends BluetoothActivity implements Vi
     @Override
     public void onClick(View v) {
         if(v.getId() == R.id.buttonSend){
-            sendPicture(imageBitmap);
+            sendPicture();
         } else if(v.getId() == R.id.buttonBrowse){
             Intent i = new Intent(Intent.ACTION_PICK,android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
             startActivityForResult(i, RESULT_LOAD_IMAGE);
         }
     }
 
-    private void sendPicture(Bitmap bitmap){
+    private void sendPicture(){
         if(mService!=null){
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 100,baos); //bm is the bitmap object
-            byte[] buffer = baos.toByteArray();
-            ByteBuffer imageLength = ByteBuffer.allocate(8);
-            imageLength.putInt(buffer.length);
-            mService.write(imageLength.array());
-            mService.write(buffer);
+            File file = new File(imagePath);
+            if(file.isFile()){
+                try {
+                    byte[] length = ByteBuffer.allocate(8).putLong(file.length()).array();
+                    mService.write(length);
+                    FileInputStream inputStream = new FileInputStream(file);
+                    byte[] buffer = new byte[1024];
+                    while(inputStream.read(buffer)!=-1){
+                        mService.write(buffer);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            setStatusMessage("Image length = "+file.length(),false);
+
         }
     }
 
@@ -207,11 +281,9 @@ public class BluetoothConnectionActivity extends BluetoothActivity implements Vi
             Cursor cursor = getContentResolver().query(selectedImage,filePathColumn, null, null, null);
             cursor.moveToFirst();
             int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
-            String picturePath = cursor.getString(columnIndex);
+            imagePath = cursor.getString(columnIndex);
             cursor.close();
-            ImageView imageView = (ImageView) findViewById(R.id.imageViewIcon);
-            imageBitmap  = BitmapFactory.decodeFile(picturePath);
-            imageView.setImageBitmap(imageBitmap);
+            displayImage();
         }
     }
 }

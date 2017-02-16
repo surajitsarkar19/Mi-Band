@@ -13,6 +13,10 @@ import android.os.Message;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
+
 import surajit.com.miband.MainActivity;
 
 /**
@@ -26,19 +30,19 @@ public class BluetoothService extends Service {
     private final IBinder mBinder = new LocalBinder();
     private Context context;
     private BluetoothUtility bluetoothUtility;
-    private BluetoothServiceListener listener;
+    private Set<BluetoothServiceListener> listenerSet;
     private String TAG = MainActivity.TAG;
 
     private Handler handler = new Handler(new Handler.Callback() {
         @Override
         public boolean handleMessage(Message msg) {
-            if(listener!=null) {
+            if(listenerSet!=null && listenerSet.size()>0) {
                 switch (msg.what) {
 
                     case Constants.MESSAGE_READ:
                         int readLength = msg.arg1;
                         byte[] data = (byte[])msg.obj;
-                        listener.onRead(readLength,data);
+                        sendReadEvent(readLength,data);
                         break;
 
                     case Constants.MESSAGE_STATE_CHANGE:
@@ -46,7 +50,7 @@ public class BluetoothService extends Service {
                         if(state == BluetoothUtility.STATE_CONNECTED){
                             Bundle bundle = msg.getData();
                             BluetoothDevice device = bundle.getParcelable(Constants.EXTRA_DEVICE);
-                            listener.onConnect(device);
+                            sendConnect(device);
                         } else{
                             //listener.
                         }
@@ -54,7 +58,11 @@ public class BluetoothService extends Service {
 
                     case Constants.MESSAGE_ERROR:
                         String errrorMessage = msg.getData().getString(Constants.EXTRA_MESSAGE);
-                        listener.onError(errrorMessage);
+                        sendErrorEvent(errrorMessage);
+                        break;
+                    case Constants.MESSAGE_SUCCESS:
+                        String message = msg.getData().getString(Constants.EXTRA_MESSAGE);
+                        sendSuccessEvent(message);
                         break;
 
                 }
@@ -63,6 +71,38 @@ public class BluetoothService extends Service {
         }
     });
 
+    private void sendReadEvent(int nRead, byte[] data){
+        Iterator<BluetoothServiceListener> iterator = listenerSet.iterator();
+        while (iterator.hasNext()){
+            BluetoothServiceListener listener = iterator.next();
+            listener.onRead(nRead,data);
+        }
+    }
+
+    private void sendConnect(BluetoothDevice device){
+        Iterator<BluetoothServiceListener> iterator = listenerSet.iterator();
+        while (iterator.hasNext()){
+            BluetoothServiceListener listener = iterator.next();
+            listener.onConnect(device);
+        }
+    }
+
+    private void sendErrorEvent(String message){
+        Iterator<BluetoothServiceListener> iterator = listenerSet.iterator();
+        while (iterator.hasNext()){
+            BluetoothServiceListener listener = iterator.next();
+            listener.onError(message);
+        }
+    }
+
+    private void sendSuccessEvent(String message){
+        Iterator<BluetoothServiceListener> iterator = listenerSet.iterator();
+        while (iterator.hasNext()){
+            BluetoothServiceListener listener = iterator.next();
+            listener.onError(message);
+        }
+    }
+
     public class LocalBinder extends Binder {
         BluetoothService getService() {
             return BluetoothService.this;
@@ -70,7 +110,11 @@ public class BluetoothService extends Service {
     }
 
     public void registerCallback(BluetoothServiceListener listener){
-        this.listener = listener;
+        listenerSet.add(listener);
+    }
+
+    public void unregisterCallback(BluetoothServiceListener listener){
+        listenerSet.remove(listener);
     }
 
     @Override
@@ -79,6 +123,7 @@ public class BluetoothService extends Service {
         Log.i(TAG,"Bluetooth Service Started");
         context = getApplicationContext();
         bluetoothUtility = new BluetoothUtility(context,handler);
+        listenerSet = new HashSet<>();
     }
 
     @Nullable

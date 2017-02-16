@@ -19,4 +19,5 @@ public interface BluetoothServiceListener {
     void onConnect(BluetoothDevice device);
     void onRead(int nRead, byte[] data);
     void onError(String message);
+    void onSuccess(String message);
 }

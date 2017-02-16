@@ -305,6 +305,14 @@ public class BluetoothUtility {
         mHandler.sendMessage(msg);
     }
 
+    private void sendMessage(String message){
+        Message msg = mHandler.obtainMessage(Constants.MESSAGE_SUCCESS);
+        Bundle bundle = new Bundle();
+        bundle.putString(Constants.EXTRA_MESSAGE, message);
+        msg.setData(bundle);
+        mHandler.sendMessage(msg);
+    }
+
     /**
      * Indicate that the connection was lost and notify the UI Activity.
      */
@@ -371,8 +379,8 @@ public class BluetoothUtility {
                             case STATE_LISTEN:
                             case STATE_CONNECTING:
                                 // Situation normal. Start the connected thread.
-                                connected(socket, socket.getRemoteDevice(),
-                                        mSocketType);
+                                connected(socket, socket.getRemoteDevice(), mSocketType);
+                                sendMessage("Connection accepted...");
                                 break;
                             case STATE_NONE:
                             case STATE_CONNECTED:
@@ -462,6 +470,7 @@ public class BluetoothUtility {
 
             // Start the connected thread
             connected(mmSocket, mmDevice, mSocketType);
+            sendMessage("Connection established...");
 
             Log.i(TAG, "END mConnectThread SocketType:" + mSocketType);
         }
@@ -537,6 +546,7 @@ public class BluetoothUtility {
         public void write(byte[] buffer) {
             try {
                 mmOutStream.write(buffer);
+                mmOutStream.flush();
 
                 // Share the sent message back to the UI Activity
                 mHandler.obtainMessage(Constants.MESSAGE_WRITE, -1, -1, buffer)
