@@ -10,7 +10,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
@@ -35,7 +34,6 @@ public abstract class BluetoothActivity extends PermissionActivity implements Bl
     public static int REQUEST_START_DISCOVERIBILITY = 267;
     public static int DISCOVERABLE_DURATION = 5*60;
 
-    private Handler handler;
     protected List<BluetoothItem> bluetoothDeviceList;
     protected List<BluetoothItem> pairedList;
     protected List<BluetoothItem> unpairedList;
@@ -154,7 +152,6 @@ public abstract class BluetoothActivity extends PermissionActivity implements Bl
         bluetoothDeviceList = new ArrayList<>();
         pairedList = new ArrayList<>();
         unpairedList = new ArrayList<>();
-        handler = new Handler();
 
         registerReceiver();
 
@@ -188,7 +185,7 @@ public abstract class BluetoothActivity extends PermissionActivity implements Bl
     protected void onPause() {
         super.onPause();
         if(mService!=null){
-            mService.registerCallback(BluetoothActivity.this);
+            //mService.unregisterCallback(BluetoothActivity.this);
         }
     }
 

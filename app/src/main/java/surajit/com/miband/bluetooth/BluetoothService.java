@@ -45,6 +45,12 @@ public class BluetoothService extends Service {
                         sendReadEvent(readLength,data);
                         break;
 
+                    case Constants.MESSAGE_WRITE:
+                        int writeLen = msg.arg1;
+                        byte[] writeData = (byte[])msg.obj;
+                        sendWriteEvent(writeLen,writeData);
+                        break;
+
                     case Constants.MESSAGE_STATE_CHANGE:
                         int state = msg.arg1;
                         if(state == BluetoothUtility.STATE_CONNECTED){
@@ -76,6 +82,14 @@ public class BluetoothService extends Service {
         while (iterator.hasNext()){
             BluetoothServiceListener listener = iterator.next();
             listener.onRead(nRead,data);
+        }
+    }
+
+    private void sendWriteEvent(int nWrite, byte[] data){
+        Iterator<BluetoothServiceListener> iterator = listenerSet.iterator();
+        while (iterator.hasNext()){
+            BluetoothServiceListener listener = iterator.next();
+            listener.onSent(nWrite,data);
         }
     }
 

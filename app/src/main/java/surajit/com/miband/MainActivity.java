@@ -137,6 +137,11 @@ public class MainActivity extends BluetoothActivity implements View.OnClickListe
     }
 
     @Override
+    public void onSent(int nSent, byte[] data) {
+
+    }
+
+    @Override
     public void onError(String message) {
 
     }

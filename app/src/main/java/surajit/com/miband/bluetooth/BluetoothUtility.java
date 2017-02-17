@@ -29,6 +29,8 @@ import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -494,19 +496,19 @@ public class BluetoothUtility {
      */
     private class ConnectedThread extends Thread {
         private final BluetoothSocket mmSocket;
-        private final InputStream mmInStream;
-        private final OutputStream mmOutStream;
+        private final BufferedInputStream mmInStream;
+        private final BufferedOutputStream mmOutStream;
 
         public ConnectedThread(BluetoothSocket socket, String socketType) {
             Log.d(TAG, "create ConnectedThread: " + socketType);
             mmSocket = socket;
-            InputStream tmpIn = null;
-            OutputStream tmpOut = null;
+            BufferedInputStream tmpIn = null;
+            BufferedOutputStream tmpOut = null;
 
             // Get the BluetoothSocket input and output streams
             try {
-                tmpIn = socket.getInputStream();
-                tmpOut = socket.getOutputStream();
+                tmpIn = new BufferedInputStream(socket.getInputStream());
+                tmpOut = new BufferedOutputStream(socket.getOutputStream());
             } catch (IOException e) {
                 Log.e(TAG, "temp sockets not created", e);
             }
@@ -524,6 +526,7 @@ public class BluetoothUtility {
             while (mState == STATE_CONNECTED) {
                 try {
                     // Read from the InputStream
+                    buffer = new byte[1024];
                     bytes = mmInStream.read(buffer);
 
                     // Send the obtained bytes to the UI Activity
@@ -557,7 +560,7 @@ public class BluetoothUtility {
                 mmOutStream.flush();
 
                 // Share the sent message back to the UI Activity
-                mHandler.obtainMessage(Constants.MESSAGE_WRITE, -1, -1, buffer)
+                mHandler.obtainMessage(Constants.MESSAGE_WRITE, count, -1, buffer)
                         .sendToTarget();
             } catch (IOException e) {
                 Log.e(TAG, "Exception during write", e);
