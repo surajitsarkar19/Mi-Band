@@ -5,6 +5,7 @@
       <module fileurl="file://$PROJECT_DIR$/Mi-Band.iml" filepath="$PROJECT_DIR$/Mi-Band.iml" />
       <module fileurl="file://$PROJECT_DIR$/MiBand.iml" filepath="$PROJECT_DIR$/MiBand.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/miband-sdk/miband-sdk.iml" filepath="$PROJECT_DIR$/miband-sdk/miband-sdk.iml" />
     </modules>
   </component>
 </project>
